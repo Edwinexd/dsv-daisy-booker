@@ -12,39 +12,30 @@ from datetime import timedelta
 import datetime
 from typing import Any, Dict, List
 
+import attr
 
-def schedule(rooms: Dict[str, Any], start_time: str, hours: int, shift: bool = False) -> List[Dict[str, str]]:
+from daisy import RoomTime
+from parse import RoomActivity
+
+@attr.s(auto_attribs=True, frozen=True, slots=True)
+class BookingSlot:
+    room_name: str
+    from_time: RoomTime
+    to_time: RoomTime
+
+def schedule(rooms: Dict[str, List[RoomActivity]], start_time: RoomTime, hours: int, shift: bool = False) -> List[BookingSlot]:
     """
     Schedule a meeting in a room
 
     Args:
-        rooms (Dict[str, Any]): {
-            room_name: [
-                {
-                    "time_slot_start": str, # 09:00
-                    "time_slot_end": str, # 10:00
-                    "event": str
-                }
-            ]
-        } All rooms that are allowed to be used
-        start_time: Start time of the meeting in format "HH:MM"
+        rooms: All rooms that are allowed to be used for the meeting
+        start_time: Start time of the meeting
         hours: Duration of the meeting in hours
         shift: If getting the right amount of hours is more important than the start time
 
     Returns:
-        List[Dict[str, str]]: [
-            {
-                "room_name": str,
-                "time_slot_start": str, # 09:00
-                "time_slot_end": str, # 10:00
-            }
-        ]
+        List[BookingSlot]: List of suggested bookings to cover the meeting
     """
-    if start_time == "24:00":
-        return []
-
-    def format_hour(hour: int) -> str:
-        return f"{hour:02}:00"
 
     room_max_name = ""
     room_max_hours = -1
@@ -52,9 +43,11 @@ def schedule(rooms: Dict[str, Any], start_time: str, hours: int, shift: bool = F
     for room_name, booked_slots in rooms.items():
         booked_hours = 0
 
-        start_hours = int(start_time.split(":")[0])
+        start_hours = start_time.value
         for i in range(start_hours, hours + start_hours):
-            if format_hour(i) not in [slot["time_slot_start"] for slot in booked_slots]:
+            if i >= 23:
+                break
+            if RoomTime(i) not in [slot.time_slot_start for slot in booked_slots]:
                 booked_hours += 1
             else:
                 break
@@ -66,23 +59,22 @@ def schedule(rooms: Dict[str, Any], start_time: str, hours: int, shift: bool = F
     result = []
 
     if room_max_hours > 0:
-        result.append({
-            "room_name": room_max_name,
-            "time_slot_start": start_time,
-            "time_slot_end": format_hour(start_hours + room_max_hours)
-        })
+        result.append(BookingSlot(room_max_name, start_time, RoomTime(start_hours + room_max_hours)))
     
+    if room_max_hours + start_hours == 23:
+        return result
+
     if room_max_hours < hours:
         if room_max_hours == 0:
             # If we couldn't book any hours in any room we may shift the booking to the next hour
             if shift:
                 start_hours += 1
-                start_time = format_hour(start_hours)
+                start_time = RoomTime(start_hours)
                 return schedule(rooms, start_time, hours, shift=True)
             room_max_hours = 1
         # Attempt to book the remaining hours in another room
         remaining_hours = hours - room_max_hours
-        remaining_start_time = format_hour(start_hours + room_max_hours)
+        remaining_start_time = RoomTime(start_hours + room_max_hours)
 
         remaining_result = schedule(rooms, remaining_start_time, remaining_hours, shift=shift)
         result.extend(remaining_result)

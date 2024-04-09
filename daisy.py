@@ -88,6 +88,50 @@ class Room(Enum):
     G10_5 = 637
     G10_6 = 638
     G10_7 = 639
+    G5_1 = 815
+    G5_10 = 804
+    G5_11 = 805
+    G5_12 = 795
+    G5_13 = 814
+    G5_15 = 812
+    G5_16 = 811
+    G5_17 = 810
+    G5_2 = 796
+    G5_3 = 797
+    G5_4 = 798
+    G5_5 = 799
+    G5_6 = 800
+    G5_7 = 801
+    G5_8 = 802
+    G5_9 = 803
+
+    @classmethod
+    def from_name(cls, name: str):
+        return {
+            "G10:1": cls.G10_1,
+            "G10:2": cls.G10_2,
+            "G10:3": cls.G10_3,
+            "G10:4": cls.G10_4,
+            "G10:5": cls.G10_5,
+            "G10:6": cls.G10_6,
+            "G10:7": cls.G10_7,
+            "G5:1": cls.G5_1,
+            "G5:10": cls.G5_10,
+            "G5:11": cls.G5_11,
+            "G5:12": cls.G5_12,
+            "G5:13": cls.G5_13,
+            "G5:15": cls.G5_15,
+            "G5:16": cls.G5_16,
+            "G5:17": cls.G5_17,
+            "G5:2": cls.G5_2,
+            "G5:3": cls.G5_3,
+            "G5:4": cls.G5_4,
+            "G5:5": cls.G5_5,
+            "G5:6": cls.G5_6,
+            "G5:7": cls.G5_7,
+            "G5:8": cls.G5_8,
+            "G5:9": cls.G5_9
+        }[name]
 
 def add_booking_user(year, month, day, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, search_term: str, lagg_till_person_id: int):
     if from_time >= to_time:
@@ -138,4 +182,28 @@ def create_booking(year, month, day, from_time: RoomTime, to_time: RoomTime, roo
     
     response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
     return response
+
+def get_schedule_for_category(year, month, day, room_category: RoomCategory):
+    # https://daisy.dsv.su.se/servlet/schema.LokalSchema
+    # url-en
+    # lokalkategori: 68
+    # year: 2024
+    # month: 04
+    # day: 17
+    # datumSubmit: Visa
+    url = "https://daisy.dsv.su.se/servlet/schema.LokalSchema"
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Cookie": f"JSESSIONID={JSESSIONID};"
+    }
+    data = {
+        "lokalkategori": room_category.to_string(),
+        "year": year,
+        "month": month,
+        "day": day,
+        "datumSubmit": "Visa"
+    }
+    response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
+    return response.text
+
 

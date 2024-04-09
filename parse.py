@@ -1,12 +1,28 @@
 import datetime
+import attr
 import json
 import re
 from typing import Any, Dict, List, Tuple
 
 from bs4 import BeautifulSoup
 
+from daisy import RoomCategory, RoomTime
 
-def parse_daisy_schedule(html_content: str) -> Dict[str, Any]:
+@attr.s(auto_attribs=True, frozen=True, slots=True)
+class RoomActivity:
+    time_slot_start: RoomTime
+    time_slot_end: RoomTime
+    event: str
+
+@attr.s(auto_attribs=True, frozen=True, slots=True)
+class Schedule:
+    activities: Dict[str, List[RoomActivity]]
+    room_category_title: str
+    room_category_id: int
+    room_category: RoomCategory
+    datetime: datetime.datetime
+
+def parse_daisy_schedule(html_content: str) -> Schedule:
     """
     Parse Daisy schedule from html content to a structured json format using BeautifulSoup
 
@@ -14,23 +30,7 @@ def parse_daisy_schedule(html_content: str) -> Dict[str, Any]:
         html_content: HTML content of the schedule
     
     Returns:
-        Dict[str, Any]: {
-            "activities": {
-                room_name: [
-                    {
-                        "time_slot_start": str,
-                        "time_slot_end": str,
-                        "event": str
-                    }
-                ]
-            },
-            "room_category_title": str,
-            "room_category_id": str,
-            "year": int,
-            "month": int,
-            "day": int,
-            "datetime": ISO 8601 formatted date
-        }
+        Schedule object containing the parsed schedule
     """
     # Initialize BeautifulSoup
     soup = BeautifulSoup(html_content, "html.parser")
@@ -57,7 +57,7 @@ def parse_daisy_schedule(html_content: str) -> Dict[str, Any]:
                 continue
             cell = cells[slicer + 1]
             if cell.find("a") and (cell.get("rowspan") or cell.text.strip()):
-                event = list(cell.find("a").children)[0]
+                event = list(cell.find("a").children)[0].strip()
                 duration = cell.find("span", {"class": "mini"}).text.split(": ")[1]
                 start_hour, end_hour = map(int, duration.split("-"))
                 event_time_slots = [
@@ -76,8 +76,8 @@ def parse_daisy_schedule(html_content: str) -> Dict[str, Any]:
         for time_slot, event in room_events[i]:
             room_events_dict[room].append(
                 {
-                    "time_slot_start": time_slot.split("-")[0] + ":00",
-                    "time_slot_end": time_slot.split("-")[1] + ":00",
+                    "time_slot_start": int(time_slot.split("-")[0]),
+                    "time_slot_end": int(time_slot.split("-")[1]),
                     "event": event,
                 }
             )
@@ -98,6 +98,14 @@ def parse_daisy_schedule(html_content: str) -> Dict[str, Any]:
     date_match = re.findall(r"(\d{4})-(\d{2})-(\d{2})", date_column)[0]
     date = datetime.datetime(int(date_match[0]), int(date_match[1]), int(date_match[2]))
 
+    return Schedule(
+        {k:[RoomActivity(RoomTime(activity["time_slot_start"]), RoomTime(activity["time_slot_end"]), activity["event"]) for activity in v] for k, v in room_events_dict.items()},
+        room_category_title,
+        int(room_category_id),
+        RoomCategory(int(room_category_id)),
+        date
+    )
+    
     return {
         "activities": room_events_dict,
         "room_category_title": room_category_title,
@@ -112,4 +120,4 @@ if __name__ == "__main__":
     with open("Daisy » Schedule.html", "r", encoding="utf-8") as file:
         content = file.read()
 
-    print(json.dumps(parse_daisy_schedule(content), indent=4))
+    print(parse_daisy_schedule(content))
