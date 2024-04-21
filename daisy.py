@@ -1,4 +1,5 @@
 import os
+import datetime
 from enum import Enum
 from typing import Optional
 
@@ -27,6 +28,7 @@ STANDARD_HEADERS = {
     "sec-ch-ua": '"Microsoft Edge";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
+    "X-Powered-By": "dsv-daisy-booker (https://github.com/Edwinexd/dsv-daisy-booker); Contact (edwin.sundberg@dsv.su.se)",
 }
 
 class RoomTime(Enum):
@@ -133,7 +135,7 @@ class Room(Enum):
             "G5:9": cls.G5_9
         }[name]
 
-def add_booking_user(year, month, day, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, search_term: str, lagg_till_person_id: int):
+def add_booking_user(date: datetime.date, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, search_term: str, lagg_till_person_id: int):
     if from_time >= to_time:
         raise ValueError("from_time must be before to_time")
     
@@ -143,9 +145,9 @@ def add_booking_user(year, month, day, from_time: RoomTime, to_time: RoomTime, r
         "Cookie": f"JSESSIONID={JSESSIONID};"
     }
     data = {
-        "year": year,
-        "month": month,
-        "day": day,
+        "year": date.year,
+        "month": f"{date.month:02d}",
+        "day": f"{date.day:02d}",
         "from": from_time.to_string(),
         "to": to_time.to_string(),
         "lokalkategoriID": room_category.to_string(),
@@ -159,16 +161,16 @@ def add_booking_user(year, month, day, from_time: RoomTime, to_time: RoomTime, r
     response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
     return response
 
-def create_booking(year, month, day, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, namn: str, description: Optional[str] = None):
+def create_booking(date: datetime.date, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, namn: str, description: Optional[str] = None):
     url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
         "Cookie": f"JSESSIONID={JSESSIONID};"
     }
     data = {
-        "year": year,
-        "month": month,
-        "day": day,
+        "year": date.year,
+        "month": f"{date.month:02d}",
+        "day": f"{date.day:02d}",
         "from": from_time.to_string(),
         "to": to_time.to_string(),
         "lokalkategoriID": room_category.to_string(),
@@ -183,7 +185,7 @@ def create_booking(year, month, day, from_time: RoomTime, to_time: RoomTime, roo
     response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
     return response
 
-def get_schedule_for_category(year, month, day, room_category: RoomCategory):
+def get_schedule_for_category(date: datetime.date, room_category: RoomCategory):
     # https://daisy.dsv.su.se/servlet/schema.LokalSchema
     # url-en
     # lokalkategori: 68
@@ -198,9 +200,9 @@ def get_schedule_for_category(year, month, day, room_category: RoomCategory):
     }
     data = {
         "lokalkategori": room_category.to_string(),
-        "year": year,
-        "month": month,
-        "day": day,
+        "year": date.year,
+        "month": f"{date.month:02d}",
+        "day": f"{date.day:02d}",
         "datumSubmit": "Visa"
     }
     response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)

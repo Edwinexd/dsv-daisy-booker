@@ -23,12 +23,17 @@ class BookingSlot:
     from_time: RoomTime
     to_time: RoomTime
 
-def schedule(rooms: Dict[str, List[RoomActivity]], start_time: RoomTime, hours: int, shift: bool = False) -> List[BookingSlot]:
+@attr.s(auto_attribs=True, frozen=True, slots=True)
+class BookableRoom:
+    name: str
+    booked_slots: List[RoomActivity]
+
+def schedule(rooms: List[BookableRoom], start_time: RoomTime, hours: int, shift: bool = False) -> List[BookingSlot]:
     """
     Schedule a meeting in a room
 
     Args:
-        rooms: All rooms that are allowed to be used for the meeting
+        rooms: All rooms that are allowed to be used for the meeting, sorted in order of preference
         start_time: Start time of the meeting
         hours: Duration of the meeting in hours
         shift: If getting the right amount of hours is more important than the start time
@@ -40,7 +45,9 @@ def schedule(rooms: Dict[str, List[RoomActivity]], start_time: RoomTime, hours: 
     room_max_name = ""
     room_max_hours = -1
 
-    for room_name, booked_slots in rooms.items():
+    for room in rooms:
+        room_name = room.name
+        booked_slots = room.booked_slots
         booked_hours = 0
 
         start_hours = start_time.value

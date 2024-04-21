@@ -59,7 +59,9 @@ def parse_daisy_schedule(html_content: str) -> Schedule:
             if cell.find("a") and (cell.get("rowspan") or cell.text.strip()):
                 event = list(cell.find("a").children)[0].strip()
                 duration = cell.find("span", {"class": "mini"}).text.split(": ")[1]
-                start_hour, end_hour = map(int, duration.split("-"))
+                row_span = int(cell.get("rowspan") or 1)
+                start_hour = int(duration.split("-")[0])
+                end_hour = start_hour + row_span
                 event_time_slots = [
                     f"{hour:02d}-{hour + 1:02d}" for hour in range(start_hour, end_hour)
                 ]
