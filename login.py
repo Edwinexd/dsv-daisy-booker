@@ -1,19 +1,39 @@
 import requests
 from bs4 import BeautifulSoup
+import dotenv, os
+
+from daisy import is_token_valid
 
 
 def daisy_login(su_username: str, su_password: str):
     # Start a session to keep cookies
     session = requests.Session()
 
+    headers = {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Accept-Language": "en-GB,en;q=0.9,en-US;q=0.8,sv;q=0.7",
+        "Cache-Control": "max-age=0",
+        "Connection": "keep-alive",
+        # "Host": "daisy.dsv.su.se",
+        # "Origin": "https://daisy.dsv.su.se",
+        # "Referer": "https://daisy.dsv.su.se/common/schema/bokning.jspa",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
+        "sec-ch-ua": '"Microsoft Edge";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "X-Powered-By": "dsv-daisy-booker (https://github.com/Edwinexd/dsv-daisy-booker); Contact (edwin.sundberg@dsv.su.se)",
+    }
+    for key, value in headers.items():
+        session.headers[key] = value
+
     # 1. Get the initial session cookie by visiting the main page
-    session.get(
-        "https://daisy.dsv.su.se/index.jspa",
-        headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
-            "X-Powered-By": "dsv-daisy-booker (https://github.com/Edwinexd/dsv-daisy-booker); Contact (edwin.sundberg@dsv.su.se)",
-        },
-    )
+    session.get("https://daisy.dsv.su.se/index.jspa")
 
     # 2. Navigate to the login URL which may be needed to retrieve further login form details
     login_response = session.get(
@@ -57,7 +77,14 @@ def daisy_login(su_username: str, su_password: str):
 
     # Submit the form
     action_url = form["action"] # type: ignore
-    post_response = session.post(action_url, data=form_data) # type: ignore
-
+    post_response = session.post(action_url, data=form_data, headers={"Content-Type": "application/x-www-form-urlencoded", "Origin": "https://idp.it.su.se", "Referer": "https://idp.it.su.se/"}) # type: ignore
+    
     # 4. Return the session cookie if login is successful
     return session.cookies.get_dict()
+
+
+if __name__ == "__main__":
+    dotenv.load_dotenv()
+    su_username = os.getenv("SU_USERNAME", "")
+    su_password = os.getenv("SU_PASSWORD", "")
+    print(daisy_login(su_username, su_password))

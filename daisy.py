@@ -135,10 +135,7 @@ class Room(Enum):
             "G5:9": cls.G5_9
         }[name]
 
-def add_booking_user(date: datetime.date, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, search_term: str, lagg_till_person_id: int):
-    if from_time >= to_time:
-        raise ValueError("from_time must be before to_time")
-    
+def add_booking_user(date: datetime.date, search_term: str, lagg_till_person_id: int):
     url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -148,10 +145,10 @@ def add_booking_user(date: datetime.date, from_time: RoomTime, to_time: RoomTime
         "year": date.year,
         "month": f"{date.month:02d}",
         "day": f"{date.day:02d}",
-        "from": from_time.to_string(),
-        "to": to_time.to_string(),
-        "lokalkategoriID": room_category.to_string(),
-        "lokalID": room_id,
+        "from": RoomTime.NINE.to_string(),
+        "to": RoomTime.TEN.to_string(),
+        "lokalkategoriID": RoomCategory.BOOKABLE_GROUP_ROOMS.to_string(),
+        "lokalID": Room.G10_1.value,
         "namn": "",
         "descr": "",
         "searchTerm": search_term,
@@ -161,7 +158,7 @@ def add_booking_user(date: datetime.date, from_time: RoomTime, to_time: RoomTime
     response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
     return response
 
-def create_booking(date: datetime.date, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, namn: str, description: Optional[str] = None):
+def create_booking(date: datetime.date, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, name: str, description: Optional[str] = None):
     url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -175,7 +172,7 @@ def create_booking(date: datetime.date, from_time: RoomTime, to_time: RoomTime, 
         "to": to_time.to_string(),
         "lokalkategoriID": room_category.to_string(),
         "lokalID": room_id,
-        "namn": namn,
+        "namn": name,
         "descr": description if description else "",
         "searchTerm": "",
         "laggTillPersonID": "",
@@ -208,4 +205,12 @@ def get_schedule_for_category(date: datetime.date, room_category: RoomCategory):
     response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
     return response.text
 
+def is_token_valid() -> bool:
+    url = "https://daisy.dsv.su.se/servlet/schema.LokalSchema"
+    headers = {
+        "Cookie": f"JSESSIONID={JSESSIONID};",
+        "Referer": "https://daisy.dsv.su.se/student/aktuellt.jspa"
+    }
 
+    response = requests.get(url, headers=STANDARD_HEADERS | headers)
+    return "Log in" not in response.text

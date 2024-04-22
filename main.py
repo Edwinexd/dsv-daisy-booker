@@ -14,10 +14,6 @@ if __name__ == "__main__":
     
     response_text = add_booking_user(
         date=DATE,
-        from_time=RoomTime.NINE,
-        to_time=RoomTime.TEN,
-        room_category=RoomCategory.BOOKABLE_GROUP_ROOMS,
-        room_id=Room.G10_1.value,
         search_term=os.getenv("SECOND_USER_SEARCH_TERM"), # type: ignore
         lagg_till_person_id=int(os.getenv("SECOND_USER_ID")), # type: ignore
     )
@@ -62,7 +58,7 @@ if __name__ == "__main__":
                 to_time=entry.to_time,
                 room_category=RoomCategory.BOOKABLE_GROUP_ROOMS,
                 room_id=Room.from_name(entry.room_name).value,
-                namn=ROOM_TITLE,
+                name=ROOM_TITLE,
             )
         print(suggestion)
         
