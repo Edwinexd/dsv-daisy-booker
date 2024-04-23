@@ -8,7 +8,7 @@ import requests
 
 dotenv.load_dotenv()
 
-JSESSIONID = os.getenv("JSESSIONID")
+JSESSIONID = os.getenv("JSESSIONID", "")
 
 STANDARD_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -205,10 +205,10 @@ def get_schedule_for_category(date: datetime.date, room_category: RoomCategory):
     response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
     return response.text
 
-def is_token_valid() -> bool:
+def is_token_valid(token: str = JSESSIONID) -> bool:
     url = "https://daisy.dsv.su.se/servlet/schema.LokalSchema"
     headers = {
-        "Cookie": f"JSESSIONID={JSESSIONID};",
+        "Cookie": f"JSESSIONID={token};",
         "Referer": "https://daisy.dsv.su.se/student/aktuellt.jspa"
     }
 
