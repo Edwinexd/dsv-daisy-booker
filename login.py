@@ -2,8 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 import dotenv, os
 
-from daisy import is_token_valid
-
 
 def daisy_login(su_username: str, su_password: str) -> str:
     # Start a session to keep cookies
@@ -80,8 +78,6 @@ def daisy_login(su_username: str, su_password: str) -> str:
     post_response = session.post(action_url, data=form_data, headers={"Content-Type": "application/x-www-form-urlencoded", "Origin": "https://idp.it.su.se", "Referer": "https://idp.it.su.se/"}) # type: ignore
 
     j_session_id = [cookie_str for cookie_str in post_response.request.headers["Cookie"].split(";") if "JSESSIONID" in cookie_str][0].split("=")[1]
-
-    assert is_token_valid(j_session_id)
 
     return j_session_id
 

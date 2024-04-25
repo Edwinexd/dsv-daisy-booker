@@ -1,14 +1,13 @@
 import os
 import datetime
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
-import dotenv
 import requests
 
-dotenv.load_dotenv()
-
-JSESSIONID = os.getenv("JSESSIONID", "")
+from login import daisy_login
+from parse import parse_daisy_schedule
+from schemas import BookingSlot, Schedule, RoomCategory, Room, RoomTime
 
 STANDARD_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -31,186 +30,134 @@ STANDARD_HEADERS = {
     "X-Powered-By": "dsv-daisy-booker (https://github.com/Edwinexd/dsv-daisy-booker); Contact (edwin.sundberg@dsv.su.se)",
 }
 
-class RoomTime(Enum):
-    FOUR = 4
-    FIVE = 5
-    SIX = 6
-    SEVEN = 7
-    EIGHT = 8
-    NINE = 9
-    TEN = 10
-    ELEVEN = 11
-    TWELVE = 12
-    THIRTEEN = 13
-    FOURTEEN = 14
-    FIFTEEN = 15
-    SIXTEEN = 16
-    SEVENTEEN = 17
-    EIGHTEEN = 18
-    NINETEEN = 19
-    TWENTY = 20
-    TWENTY_ONE = 21
-    TWENTY_TWO = 22
-    TWENTY_THREE = 23
+class Daisy:
+    def __init__(self, su_username: str, su_password: str, search_term: str, lagg_till_person_id: int, initial_jsessionid: Optional[str] = None, last_validated: Optional[datetime.datetime] = None, booking_user_added: bool = False):
+        self.__su_username: str = su_username
+        self.__su_password: str = su_password
+        self.search_term: str = search_term
+        self.lagg_till_person_id: int = lagg_till_person_id
+        self.jsessionid = initial_jsessionid
+        self.last_validated = last_validated
+        self.booking_user_added = booking_user_added
 
-    def to_string(self):
-        if self.value < 10:
-            return f"0{self.value}:00"
-        return f"{self.value}:00"
+    def _ensure_valid_jsessionid(self):
+        if self.jsessionid is not None and self.last_validated is not None and datetime.datetime.now().date == self.last_validated.date and self.last_validated.hour != datetime.datetime.now().hour:
+            # Token does not need to be rechecked at the moment
+            return
+        
+        if self.jsessionid is not None and self._is_token_valid():
+            self.last_validated = datetime.datetime.now()
+            return
+        
+        self.jsessionid = daisy_login(self.__su_username, self.__su_password)
+        self.booking_user_added = False
+        self.last_validated = datetime.datetime.now()
 
-    def __lt__(self, other):
-        return self.value < other.value
-    
-    def __le__(self, other):
-        return self.value <= other.value
-    
-    def __eq__(self, other):
-        return self.value == other.value
-    
-    def __ne__(self, other):
-        return self.value != other.value
-    
-    def __gt__(self, other):
-        return self.value > other.value
-    
-    def __ge__(self, other):
-        return self.value >= other.value
+    # Before request function wrapper
+    def _ensure_valid_jsessionid_wrapper(self, func):
+        def wrapper(self, *args, **kwargs):
+            self._ensure_valid_jsessionid()
+            return func(self, *args, **kwargs)
+        return wrapper
 
-class RoomCategory(Enum):
-    BOOKABLE_GROUP_ROOMS = 68
+    def _is_token_valid(self) -> bool:
+        url = "https://daisy.dsv.su.se/servlet/schema.LokalSchema"
+        headers = {
+            "Cookie": f"JSESSIONID={self.jsessionid};",
+            "Referer": "https://daisy.dsv.su.se/student/aktuellt.jspa"
+        }
 
-    def to_string(self):
-        return str(self.value)
+        response = requests.get(url, headers=STANDARD_HEADERS | headers)
+        return "Log in" not in response.text
 
-class Room(Enum):
-    G10_1 = 633
-    G10_2 = 634
-    G10_3 = 635
-    G10_4 = 636
-    G10_5 = 637
-    G10_6 = 638
-    G10_7 = 639
-    G5_1 = 815
-    G5_10 = 804
-    G5_11 = 805
-    G5_12 = 795
-    G5_13 = 814
-    G5_15 = 812
-    G5_16 = 811
-    G5_17 = 810
-    G5_2 = 796
-    G5_3 = 797
-    G5_4 = 798
-    G5_5 = 799
-    G5_6 = 800
-    G5_7 = 801
-    G5_8 = 802
-    G5_9 = 803
+    def _add_booking_user(self, date: datetime.date):
+        self._ensure_valid_jsessionid()
+        url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cookie": f"JSESSIONID={self.jsessionid};"
+        }
+        data = {
+            "year": date.year,
+            "month": f"{date.month:02d}",
+            "day": f"{date.day:02d}",
+            "from": RoomTime.NINE.to_string(),
+            "to": RoomTime.TEN.to_string(),
+            "lokalkategoriID": RoomCategory.BOOKABLE_GROUP_ROOMS.to_string(),
+            "lokalID": Room.G10_1.value,
+            "namn": "",
+            "descr": "",
+            "searchTerm": self.search_term,
+            "laggTillPersonID": self.lagg_till_person_id,
+        }
+        
+        response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
+        return response
 
-    @classmethod
-    def from_name(cls, name: str):
-        return {
-            "G10:1": cls.G10_1,
-            "G10:2": cls.G10_2,
-            "G10:3": cls.G10_3,
-            "G10:4": cls.G10_4,
-            "G10:5": cls.G10_5,
-            "G10:6": cls.G10_6,
-            "G10:7": cls.G10_7,
-            "G5:1": cls.G5_1,
-            "G5:10": cls.G5_10,
-            "G5:11": cls.G5_11,
-            "G5:12": cls.G5_12,
-            "G5:13": cls.G5_13,
-            "G5:15": cls.G5_15,
-            "G5:16": cls.G5_16,
-            "G5:17": cls.G5_17,
-            "G5:2": cls.G5_2,
-            "G5:3": cls.G5_3,
-            "G5:4": cls.G5_4,
-            "G5:5": cls.G5_5,
-            "G5:6": cls.G5_6,
-            "G5:7": cls.G5_7,
-            "G5:8": cls.G5_8,
-            "G5:9": cls.G5_9
-        }[name]
+    def _get_raw_schedule_for_category(self, date: datetime.date, room_category: RoomCategory):
+        self._ensure_valid_jsessionid()
+        # https://daisy.dsv.su.se/servlet/schema.LokalSchema
+        # url-en
+        # lokalkategori: 68
+        # year: 2024
+        # month: 04
+        # day: 17
+        # datumSubmit: Visa
+        url = "https://daisy.dsv.su.se/servlet/schema.LokalSchema"
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cookie": f"JSESSIONID={self.jsessionid};"
+        }
+        data = {
+            "lokalkategori": room_category.to_string(),
+            "year": date.year,
+            "month": f"{date.month:02d}",
+            "day": f"{date.day:02d}",
+            "datumSubmit": "Visa"
+        }
+        response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
+        return response.text
 
-def add_booking_user(date: datetime.date, search_term: str, lagg_till_person_id: int):
-    url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Cookie": f"JSESSIONID={JSESSIONID};"
-    }
-    data = {
-        "year": date.year,
-        "month": f"{date.month:02d}",
-        "day": f"{date.day:02d}",
-        "from": RoomTime.NINE.to_string(),
-        "to": RoomTime.TEN.to_string(),
-        "lokalkategoriID": RoomCategory.BOOKABLE_GROUP_ROOMS.to_string(),
-        "lokalID": Room.G10_1.value,
-        "namn": "",
-        "descr": "",
-        "searchTerm": search_term,
-        "laggTillPersonID": lagg_till_person_id,
-    }
-    
-    response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
-    return response
+    def create_booking(self, date: datetime.date, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, name: str, description: Optional[str] = None):
+        self._ensure_valid_jsessionid()
+        if not self.booking_user_added:
+            self._add_booking_user(date)
+            self.booking_user_added = True
+        url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cookie": f"JSESSIONID={self.jsessionid};"
+        }
+        data = {
+            "year": date.year,
+            "month": f"{date.month:02d}",
+            "day": f"{date.day:02d}",
+            "from": from_time.to_string(),
+            "to": to_time.to_string(),
+            "lokalkategoriID": room_category.to_string(),
+            "lokalID": room_id,
+            "namn": name,
+            "descr": description if description else "",
+            "searchTerm": "",
+            "laggTillPersonID": "",
+            "bokning": ""
+        }
+        
+        response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
+        return response
 
-def create_booking(date: datetime.date, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, name: str, description: Optional[str] = None):
-    url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Cookie": f"JSESSIONID={JSESSIONID};"
-    }
-    data = {
-        "year": date.year,
-        "month": f"{date.month:02d}",
-        "day": f"{date.day:02d}",
-        "from": from_time.to_string(),
-        "to": to_time.to_string(),
-        "lokalkategoriID": room_category.to_string(),
-        "lokalID": room_id,
-        "namn": name,
-        "descr": description if description else "",
-        "searchTerm": "",
-        "laggTillPersonID": "",
-        "bokning": ""
-    }
-    
-    response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
-    return response
+    def book_slots(self, times: List[BookingSlot], date: datetime.date, title: str):
+        for entry in times:
+            # Book each room
+            self.create_booking(
+                date=date,
+                from_time=entry.from_time,
+                to_time=entry.to_time,
+                room_category=RoomCategory.BOOKABLE_GROUP_ROOMS,
+                room_id=Room.from_name(entry.room_name).value,
+                name=title,
+            )
 
-def get_schedule_for_category(date: datetime.date, room_category: RoomCategory):
-    # https://daisy.dsv.su.se/servlet/schema.LokalSchema
-    # url-en
-    # lokalkategori: 68
-    # year: 2024
-    # month: 04
-    # day: 17
-    # datumSubmit: Visa
-    url = "https://daisy.dsv.su.se/servlet/schema.LokalSchema"
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Cookie": f"JSESSIONID={JSESSIONID};"
-    }
-    data = {
-        "lokalkategori": room_category.to_string(),
-        "year": date.year,
-        "month": f"{date.month:02d}",
-        "day": f"{date.day:02d}",
-        "datumSubmit": "Visa"
-    }
-    response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
-    return response.text
-
-def is_token_valid(token: str = JSESSIONID) -> bool:
-    url = "https://daisy.dsv.su.se/servlet/schema.LokalSchema"
-    headers = {
-        "Cookie": f"JSESSIONID={token};",
-        "Referer": "https://daisy.dsv.su.se/student/aktuellt.jspa"
-    }
-
-    response = requests.get(url, headers=STANDARD_HEADERS | headers)
-    return "Log in" not in response.text
+    def get_schedule_for_category(self, date: datetime.date, room_category: RoomCategory) -> Schedule:
+        raw = self._get_raw_schedule_for_category(date, room_category)
+        return parse_daisy_schedule(raw)

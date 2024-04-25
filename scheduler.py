@@ -1,32 +1,33 @@
-# {
-#     room_name: [
-#         {
-#             "time_slot_start": str, # 09:00
-#             "time_slot_end": str, # 10:00
-#             "event": str
-#         }
-#     ]
-# }
+from typing import List, Tuple
 
-from datetime import timedelta
-import datetime
-from typing import Any, Dict, List
+from schemas import BookableRoom, Room, RoomTime, Schedule, Break, BookingSlot
 
-import attr
 
-from daisy import RoomTime
-from parse import RoomActivity
-
-@attr.s(auto_attribs=True, frozen=True, slots=True)
-class BookingSlot:
-    room_name: str
-    from_time: RoomTime
-    to_time: RoomTime
-
-@attr.s(auto_attribs=True, frozen=True, slots=True)
-class BookableRoom:
-    name: str
-    booked_slots: List[RoomActivity]
+# TODO: User-variable:
+ROOM_PREFERENCE_ORDER = [
+    Room.G10_2,
+    Room.G10_7,
+    Room.G10_6,
+    Room.G10_3,
+    Room.G10_4,
+    Room.G10_5,
+    Room.G10_1,
+    Room.G5_1,
+    Room.G5_2,
+    Room.G5_3,
+    Room.G5_4,
+    Room.G5_5,
+    Room.G5_6,
+    Room.G5_7,
+    Room.G5_8,
+    Room.G5_9,
+    Room.G5_10,
+    Room.G5_11,
+    Room.G5_13,
+    Room.G5_15,
+    Room.G5_16,
+    Room.G5_17,
+]
 
 def schedule(rooms: List[BookableRoom], start_time: RoomTime, hours: int, shift: bool = False) -> List[BookingSlot]:
     """
@@ -87,3 +88,27 @@ def schedule(rooms: List[BookableRoom], start_time: RoomTime, hours: int, shift:
         result.extend(remaining_result)
 
     return result
+
+def schedule_rooms(category_schedule: Schedule, from_time: RoomTime, duration: int, breaks: List[Break]) -> List[BookingSlot]:
+    """Higher level function to schedule rooms with support for breaks"""
+    rooms = [BookableRoom(name, value) for name, value in category_schedule.activities.items()]
+
+    # Order rooms after preference, note: not all rooms are included in ROOM_PREFERENCE_ORDER
+    rooms = sorted(rooms, key=lambda room: ROOM_PREFERENCE_ORDER.index(Room.from_name(room.name)) if Room.from_name(room.name) in ROOM_PREFERENCE_ORDER else len(ROOM_PREFERENCE_ORDER))
+
+    times: List[Tuple[RoomTime, int]] = [(from_time, duration)] # list of start times and durations
+    if breaks:
+        for break_ in breaks:
+            prev_time = times.pop()
+            next_start_time = break_.start_time.value + break_.duration
+            remaining_hours_after_break = prev_time[1] - (break_.start_time.value - prev_time[0].value)
+            times.append((prev_time[0], break_.start_time.value - prev_time[0].value))
+            times.append((RoomTime(next_start_time), remaining_hours_after_break))
+
+    all_times = []
+    for start_time, slot_duration in times:
+        suggestion = schedule(rooms, start_time, slot_duration, shift=True)
+        for entry in suggestion:
+            all_times.append(entry)
+
+    return all_times

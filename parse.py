@@ -1,26 +1,10 @@
 import datetime
-import attr
-import json
 import re
-from typing import Any, Dict, List, Tuple
+from typing import List, Tuple
 
 from bs4 import BeautifulSoup
 
-from daisy import RoomCategory, RoomTime
-
-@attr.s(auto_attribs=True, frozen=True, slots=True)
-class RoomActivity:
-    time_slot_start: RoomTime
-    time_slot_end: RoomTime
-    event: str
-
-@attr.s(auto_attribs=True, frozen=True, slots=True)
-class Schedule:
-    activities: Dict[str, List[RoomActivity]]
-    room_category_title: str
-    room_category_id: int
-    room_category: RoomCategory
-    datetime: datetime.datetime
+from schemas import RoomCategory, RoomTime, Schedule, RoomActivity
 
 def parse_daisy_schedule(html_content: str) -> Schedule:
     """
@@ -107,16 +91,6 @@ def parse_daisy_schedule(html_content: str) -> Schedule:
         RoomCategory(int(room_category_id)),
         date
     )
-    
-    return {
-        "activities": room_events_dict,
-        "room_category_title": room_category_title,
-        "room_category_id": room_category_id,
-        "year": date.year,
-        "month": date.month,
-        "day": date.day,
-        "datetime": date.isoformat(),
-    }
 
 if __name__ == "__main__":
     with open("Daisy » Schedule.html", "r", encoding="utf-8") as file:
