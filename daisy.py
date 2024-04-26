@@ -120,7 +120,8 @@ class Daisy:
 
     def create_booking(self, date: datetime.date, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, name: str, description: Optional[str] = None):
         self._ensure_valid_jsessionid()
-        if not self.booking_user_added:
+        # Bookable group rooms require a secondary participant to be added
+        if RoomCategory.BOOKABLE_GROUP_ROOMS == room_category and not self.booking_user_added:
             self._add_booking_user(date)
             self.booking_user_added = True
         url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
@@ -156,6 +157,7 @@ class Daisy:
                 room_category=RoomCategory.BOOKABLE_GROUP_ROOMS,
                 room_id=Room.from_name(entry.room_name).value,
                 name=title,
+                description=f"Booked via dsv-daisy-booker (https://github.com/Edwinexd/dsv-daisy-booker) at {datetime.datetime.now().isoformat()}"
             )
 
     def get_schedule_for_category(self, date: datetime.date, room_category: RoomCategory) -> Schedule:

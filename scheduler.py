@@ -1,6 +1,6 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
-from schemas import BookableRoom, Room, RoomTime, Schedule, Break, BookingSlot
+from schemas import BookableRoom, Room, RoomRestriction, RoomTime, Schedule, Break, BookingSlot
 
 
 # TODO: User-variable:
@@ -43,11 +43,10 @@ def schedule(rooms: List[BookableRoom], start_time: RoomTime, hours: int, shift:
         List[BookingSlot]: List of suggested bookings to cover the meeting
     """
 
-    room_max_name = ""
+    room_max: Optional[BookableRoom] = None
     room_max_hours = -1
 
     for room in rooms:
-        room_name = room.name
         booked_slots = room.booked_slots
         booked_hours = 0
 
@@ -62,12 +61,12 @@ def schedule(rooms: List[BookableRoom], start_time: RoomTime, hours: int, shift:
 
         if booked_hours > room_max_hours:
             room_max_hours = booked_hours
-            room_max_name = room_name
+            room_max = room
 
     result = []
 
-    if room_max_hours > 0:
-        result.append(BookingSlot(room_max_name, start_time, RoomTime(start_hours + room_max_hours)))
+    if room_max_hours > 0 and room_max is not None:
+        result.append(BookingSlot(room_max.room, start_time, RoomTime(start_hours + room_max_hours)))
     
     if room_max_hours + start_hours == 23:
         return result
@@ -89,12 +88,17 @@ def schedule(rooms: List[BookableRoom], start_time: RoomTime, hours: int, shift:
 
     return result
 
-def schedule_rooms(category_schedule: Schedule, from_time: RoomTime, duration: int, breaks: List[Break]) -> List[BookingSlot]:
+def schedule_rooms(category_schedule: Schedule, from_time: RoomTime, duration: int, breaks: List[Break], room_restrictions: List[RoomRestriction]) -> List[BookingSlot]:
     """Higher level function to schedule rooms with support for breaks"""
-    rooms = [BookableRoom(name, value) for name, value in category_schedule.activities.items()]
+    # TODO: BookableRoom has to use the enum!
+    rooms = [BookableRoom(Room.from_name(name), value) for name, value in category_schedule.activities.items()]
+
+    for restriction in room_restrictions:
+        func = restriction.to_filter()
+        rooms = [room for room in rooms if func(room.room)]
 
     # Order rooms after preference, note: not all rooms are included in ROOM_PREFERENCE_ORDER
-    rooms = sorted(rooms, key=lambda room: ROOM_PREFERENCE_ORDER.index(Room.from_name(room.name)) if Room.from_name(room.name) in ROOM_PREFERENCE_ORDER else len(ROOM_PREFERENCE_ORDER))
+    rooms = sorted(rooms, key=lambda room: ROOM_PREFERENCE_ORDER.index(room.room) if room.room in ROOM_PREFERENCE_ORDER else len(ROOM_PREFERENCE_ORDER))
 
     times: List[Tuple[RoomTime, int]] = [(from_time, duration)] # list of start times and durations
     if breaks:

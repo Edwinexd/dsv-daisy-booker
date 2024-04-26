@@ -1,10 +1,9 @@
+import datetime
+from enum import Enum
+from typing import Callable, Dict, List
+
 import attr
 
-from enum import Enum
-
-import datetime
-
-from typing import List, Dict
 
 class RoomTime(Enum):
     FOUR = 4
@@ -110,9 +109,30 @@ class Room(Enum):
             "G5:9": cls.G5_9
         }[name]
 
+class RoomRestriction(Enum):
+    G10_ROOM = 0
+    G5_ROOM = 1
+    GREEN_AREA = 2
+    RED_AREA = 3
+
+    def to_string(self):
+        return str(self.value)
+    
+    def to_filter(self) -> Callable[[Room], bool]:
+        if self == RoomRestriction.G10_ROOM:
+            return lambda room: room in [Room.G10_1, Room.G10_2, Room.G10_3, Room.G10_4, Room.G10_5, Room.G10_6, Room.G10_7]
+        if self == RoomRestriction.G5_ROOM:
+            return lambda room: room in [Room.G5_1, Room.G5_10, Room.G5_11, Room.G5_12, Room.G5_13, Room.G5_15, Room.G5_16, Room.G5_17, Room.G5_2, Room.G5_3, Room.G5_4, Room.G5_5, Room.G5_6, Room.G5_7, Room.G5_8, Room.G5_9]
+        if self == RoomRestriction.GREEN_AREA:
+            return lambda room: room in [Room.G10_1, Room.G10_2, Room.G10_3, Room.G10_4, Room.G10_5, Room.G5_1, Room.G5_10, Room.G5_11, Room.G5_12, Room.G5_2, Room.G5_3, Room.G5_4, Room.G5_5, Room.G5_6, Room.G5_7, Room.G5_8, Room.G5_9]
+        if self == RoomRestriction.RED_AREA:
+            return lambda room: room in [Room.G10_6, Room.G10_7, Room.G5_13, Room.G5_15, Room.G5_16, Room.G5_17]
+        
+        raise KeyError(f"Unknown restriction {self}")
+
 @attr.s(auto_attribs=True, frozen=True, slots=True)
 class BookingSlot:
-    room_name: str
+    room: Room
     from_time: RoomTime
     to_time: RoomTime
 
@@ -124,7 +144,7 @@ class RoomActivity:
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
 class BookableRoom:
-    name: str
+    room: Room
     booked_slots: List[RoomActivity]
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
