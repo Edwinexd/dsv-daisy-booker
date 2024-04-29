@@ -113,7 +113,7 @@ async def on_message(message: discord.Message):
             prompt = message.content
             try:
                 print(history)
-                response = await run_async(handle_message, history, message.content)
+                response = await run_async(handle_message, history, prompt)
                 break
             except json.decoder.JSONDecodeError:
                 history.append({"role": "user", "content": prompt})

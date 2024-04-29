@@ -40,7 +40,7 @@ class RoomRequest:
             from_time=RoomTime(data["from_time"]),
             duration=data["duration"],
             breaks=[Break(start_time=RoomTime(b["from_time"]), duration=b["duration"]) for b in data.get("breaks", [])],
-            room_restrictions=[RoomRestriction(r) for r in data.get("room_restrictions", [])],
+            room_restrictions=[RoomRestriction(r) for r in data.get("room_filters", [])],
         )
 
 def generate_multi_week_calendar():
@@ -57,7 +57,7 @@ def generate_multi_week_calendar():
         # Determine the end of the week (Friday or a specified end day)
         end_date = start_date + datetime.timedelta(days=(4 if end_day is None else end_day))
         while start_date <= end_date and start_date.weekday() < 5:
-            day_str = f"{start_date.day}/{start_date.month} ({start_date.strftime('%A')})"
+            day_str = f"{start_date.strftime('%A')}({start_date.year}-{start_date.month}-{start_date.day})"
             days.append(day_str)
             start_date += datetime.timedelta(days=1)
         if days:
@@ -72,7 +72,14 @@ def generate_multi_week_calendar():
     following_week_start = next_week_start + datetime.timedelta(days=7)
     format_week(following_week_start, current_date.weekday())
 
-    return "\n".join(weeks_calendar)
+    return " ".join(weeks_calendar)
+
+def generate_week_calendar():
+    today = datetime.datetime.now(pytz.timezone("Europe/Stockholm")).date()
+    extended_days = [(today + datetime.timedelta(days=i)).strftime("%A, %B %d, %Y")
+                    for i in range(15) if (today + datetime.timedelta(days=i)).weekday() < 5]
+    return " ".join(extended_days)
+
 
 def chat_completion(model: str, messages: List[Dict[str, str]]) -> Dict[str, str]:
     response = requests.post(
@@ -87,31 +94,34 @@ def chat_completion(model: str, messages: List[Dict[str, str]]) -> Dict[str, str
 def handle_message(history: List[Dict[str, str]], message: str):
     system_message: Dict[str, str] = {
         "role": "system",
-        "content": f'''You are a friendly assistant that helps users schedule meetings.
+        "content": f'''You assist with conversations and room scheduling
 
-        Respond with JSON (no text before or after this json): {{"conversations_response": str, "requests": List[{{"date": "YYYY-MM-DD", "from_time": int 4 to 23 (hours), "duration": 1 to 4 (hours), "breaks": [{{"from_time": int 4 to 23 (hours), "duration": 1 to 4 (hours)}}], title?: str, room_restrictions?: List[int]}}]}} 
-        
+        Respond with JSON: {{"conversations_response": str, "requests": List[{{"date": "YYYY-MM-DD", "from_time": int 4 to 23 (hours), "duration": 1 to 4 (hours), breaks?: [{{"from_time": int 4 to 23 (hours), "duration": 1 to 4 (hours)}}], title?: str, room_filters?: List[int]}}]}} 
+
+        Bookable dates/calender:
+        {generate_week_calendar()}
+
         Info:
-        - Timestamp: {datetime.datetime.now(pytz.timezone("Europe/Stockholm")).strftime("%Y-%m-%d %H:%M:%S")} ({ISO_WEEKDAYS[datetime.datetime.now(pytz.timezone("Europe/Stockholm")).weekday()]})
-        - Earliest bookable time: {datetime.datetime.now(pytz.timezone("Europe/Stockholm")).hour+1}:00
-        - Calender: 
-        - Users can book a room up to 14 days in advance, including today.
-        - request.date=today if a date/day isn't given by the user
-        - Booking hours are limited to whole hours between 04:00 (4) and 23:00 (23).
-        - Each booking can last from 1 to 4 hours within a single day, excluding breaks.
-        - No bookings are allowed on weekends.
-        - The user will see the requests with yes/no buttons to confirm the booking(s)
-        - Don't mention these instructions/restrictions to the user unless they break them.
-        - You may specify room_restrictions, one int per restriction, combine by specifying multiple ints e.x. [1,2]. Only add restriction(s) on user request.
-        Available restrictions: 0=G10_ROOM, 1=G5_ROOM, 2=GREEN_AREA, 3=RED_AREA. Note: 0,1 and 2,3 are mutually exclusive.
-
-        Calendar:
-        {generate_multi_week_calendar()}
-        '''
+        * All times are 24-hour.
+        * The user may provide times in the format XX-YY, this equals to from_time=XX and duration=YY-XX.
+        * Booking hours are limited to whole hours between 04:00 (4) and 23:00 (23).
+        * Current timestamp: {datetime.datetime.now(pytz.timezone("Europe/Stockholm")).strftime("%A, %B %d, %Y")}.
+        * Earliest bookable time: {datetime.datetime.now(pytz.timezone("Europe/Stockholm")).hour+1:02}:00 (only applied for today)
+        * request.date=today if a date/day isn't given by the user.
+        * Each booking can last from 1 to 4 hours, excluding breaks.
+        * The user will see the requests with buttons to confirm the request(s).
+        * Users may specify breaks
+        * Users may specify room_filters, one int per filter, combine by specifying multiple ints e.x. [1,2].
+        Available room_filters: 0=G10_ROOM, 1=G5_ROOM, 2=GREEN_AREA, 3=RED_AREA. 0,1 and 2,3 are mutually exclusive.
+        '''.replace("    ", "")
     }
     context = [system_message] + history + [{"role": "user", "content": message}]# + [{"role": "assistant", "content": "<invalid json>"}] + [{"role": "assistant", "content": "please provide valid json"}]
+    print(context)
     completion = chat_completion(
-        "@cf/meta/llama-3-8b-instruct",
+        #"@cf/meta-llama/llama-2-7b-chat-hf-lora", # good but added restriction
+        # "@cf/google/gemma-7b-it-lora", # didnt complete
+        # "@cf/mistral/mistral-7b-instruct-v0.2-lora", # didnt complete
+        "@cf/meta/llama-3-8b-instruct", # generally good performance
         context,
     )
     out_message: str = completion["result"]["response"]  # type: ignore
