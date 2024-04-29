@@ -245,13 +245,13 @@ class RoomRestriction(Enum):
     
     def to_filter(self) -> Callable[[Room], bool]:
         if self == RoomRestriction.G10_ROOM:
-            return lambda room: room in [Room.G10_1, Room.G10_2, Room.G10_3, Room.G10_4, Room.G10_5, Room.G10_6, Room.G10_7]
+            return lambda room: room in [Room.G10_1, Room.G10_2, Room.G10_3, Room.G10_4, Room.G10_5, Room.G10_6, Room.G10_7, Room.G10_8]
         if self == RoomRestriction.G5_ROOM:
-            return lambda room: room in [Room.G5_1, Room.G5_10, Room.G5_11, Room.G5_12, Room.G5_13, Room.G5_15, Room.G5_16, Room.G5_17, Room.G5_2, Room.G5_3, Room.G5_4, Room.G5_5, Room.G5_6, Room.G5_7, Room.G5_8, Room.G5_9]
+            return lambda room: room in [Room.G5_1, Room.G5_10, Room.G5_11, Room.G5_12, Room.G5_13, Room.G5_15, Room.G5_16, Room.G5_17, Room.G5_2, Room.G5_3, Room.G5_4, Room.G5_5, Room.G5_6, Room.G5_7, Room.G5_8, Room.G5_9, Room.G5_14, Room.G5_19, Room.G5_20, Room.G5_21]
         if self == RoomRestriction.GREEN_AREA:
             return lambda room: room in [Room.G10_1, Room.G10_2, Room.G10_3, Room.G10_4, Room.G10_5, Room.G5_1, Room.G5_10, Room.G5_11, Room.G5_12, Room.G5_2, Room.G5_3, Room.G5_4, Room.G5_5, Room.G5_6, Room.G5_7, Room.G5_8, Room.G5_9]
         if self == RoomRestriction.RED_AREA:
-            return lambda room: room in [Room.G10_6, Room.G10_7, Room.G5_13, Room.G5_15, Room.G5_16, Room.G5_17]
+            return lambda room: room in [Room.G10_6, Room.G10_7, Room.G5_13, Room.G5_15, Room.G5_16, Room.G5_17, Room.G10_8, Room.G5_14, Room.G5_18, Room.G5_19, Room.G5_20, Room.G5_21]
         
         raise KeyError(f"Unknown restriction {self}")
 
