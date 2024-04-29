@@ -31,7 +31,7 @@ STANDARD_HEADERS = {
 }
 
 class Daisy:
-    def __init__(self, su_username: str, su_password: str, search_term: str, lagg_till_person_id: int, initial_jsessionid: Optional[str] = None, last_validated: Optional[datetime.datetime] = None, booking_user_added: bool = False):
+    def __init__(self, su_username: str, su_password: str, search_term: str, lagg_till_person_id: int, initial_jsessionid: Optional[str] = None, last_validated: Optional[datetime.datetime] = None, booking_user_added: bool = False, staff: bool = False, staff_jsessionid: Optional[str] = None, staff_last_validated: Optional[datetime.datetime] = None):
         self.__su_username: str = su_username
         self.__su_password: str = su_password
         self.search_term: str = search_term
@@ -39,6 +39,9 @@ class Daisy:
         self.jsessionid = initial_jsessionid
         self.last_validated = last_validated
         self.booking_user_added = booking_user_added
+        self.staff = staff
+        self.staff_jsessionid = staff_jsessionid
+        self.staff_last_validated = staff_last_validated
 
     def _ensure_valid_jsessionid(self):
         if self.jsessionid is not None and self.last_validated is not None and datetime.datetime.now().date == self.last_validated.date and self.last_validated.hour != datetime.datetime.now().hour:
@@ -53,6 +56,21 @@ class Daisy:
         self.booking_user_added = False
         self.last_validated = datetime.datetime.now()
 
+    def _ensure_valid_staff_jsessionid(self):
+        if self.staff_jsessionid is not None and self.staff_last_validated is not None and datetime.datetime.now().date == self.staff_last_validated.date and self.staff_last_validated.hour != datetime.datetime.now().hour:
+            # Token does not need to be rechecked at the moment
+            return
+        
+        if self.staff_jsessionid is not None and self._is_staff_token_valid():
+            self.staff_last_validated = datetime.datetime.now()
+            return
+
+        if not self.staff:
+            raise ValueError("Staff token requested but staff is not enabled")
+        
+        self.staff_jsessionid = daisy_login(self.__su_username, self.__su_password, staff=True)
+        self.staff_last_validated = datetime.datetime.now()
+
     # Before request function wrapper
     def _ensure_valid_jsessionid_wrapper(self, func):
         def wrapper(self, *args, **kwargs):
@@ -65,6 +83,16 @@ class Daisy:
         headers = {
             "Cookie": f"JSESSIONID={self.jsessionid};",
             "Referer": "https://daisy.dsv.su.se/student/aktuellt.jspa"
+        }
+
+        response = requests.get(url, headers=STANDARD_HEADERS | headers)
+        return "Log in" not in response.text
+
+    def _is_staff_token_valid(self) -> bool:
+        url = "https://daisy.dsv.su.se/servlet/schema.LokalSchema"
+        headers = {
+            "Cookie": f"JSESSIONID={self.staff_jsessionid};",
+            "Referer": "https://daisy.dsv.su.se/anstalld/aktuellt.jspa"
         }
 
         response = requests.get(url, headers=STANDARD_HEADERS | headers)
@@ -95,7 +123,10 @@ class Daisy:
         return response
 
     def _get_raw_schedule_for_category(self, date: datetime.date, room_category: RoomCategory):
-        self._ensure_valid_jsessionid()
+        if room_category == RoomCategory.BOOKABLE_GROUP_ROOMS:
+            self._ensure_valid_jsessionid()
+        else:
+            self._ensure_valid_staff_jsessionid()
         # https://daisy.dsv.su.se/servlet/schema.LokalSchema
         # url-en
         # lokalkategori: 68
@@ -106,7 +137,7 @@ class Daisy:
         url = "https://daisy.dsv.su.se/servlet/schema.LokalSchema"
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
-            "Cookie": f"JSESSIONID={self.jsessionid};"
+            "Cookie": f"JSESSIONID={self.jsessionid if room_category == RoomCategory.BOOKABLE_GROUP_ROOMS else self.staff_jsessionid};"
         }
         data = {
             "lokalkategori": room_category.to_string(),
@@ -119,11 +150,14 @@ class Daisy:
         return response.text
 
     def create_booking(self, date: datetime.date, from_time: RoomTime, to_time: RoomTime, room_category: RoomCategory, room_id: int, name: str, description: Optional[str] = None):
-        self._ensure_valid_jsessionid()
-        # Bookable group rooms require a secondary participant to be added
-        if RoomCategory.BOOKABLE_GROUP_ROOMS == room_category and not self.booking_user_added:
-            self._add_booking_user(date)
-            self.booking_user_added = True
+        if room_category == RoomCategory.BOOKABLE_GROUP_ROOMS:
+            self._ensure_valid_jsessionid()
+            # Bookable group rooms require a secondary participant to be added
+            if not self.booking_user_added:
+                self._add_booking_user(date)
+                self.booking_user_added = True
+        else:
+            self._ensure_valid_staff_jsessionid()
         url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -147,15 +181,15 @@ class Daisy:
         response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
         return response
 
-    def book_slots(self, times: List[BookingSlot], date: datetime.date, title: str):
+    def book_slots(self, room_category: RoomCategory, times: List[BookingSlot], date: datetime.date, title: str):
         for entry in times:
             # Book each room
             self.create_booking(
                 date=date,
                 from_time=entry.from_time,
                 to_time=entry.to_time,
-                room_category=RoomCategory.BOOKABLE_GROUP_ROOMS,
-                room_id=Room.from_name(entry.room_name).value,
+                room_category=room_category,
+                room_id=entry.room.value,
                 name=title,
                 description=f"Booked via dsv-daisy-booker (https://github.com/Edwinexd/dsv-daisy-booker) at {datetime.datetime.now().isoformat()}"
             )

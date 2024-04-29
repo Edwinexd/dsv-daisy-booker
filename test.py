@@ -1,18 +1,23 @@
-    
+import datetime
+import os 
+import dotenv
 
-from daisy import RoomTime
-from parse import parse_daisy_schedule
-from scheduler import schedule
+from daisy import Daisy
+from login import daisy_login
+from schemas import RoomCategory
 
+dotenv.load_dotenv()
 
-with open("Daisy » Schedule.html", "r", encoding="utf-8") as file:
-    content = file.read()
+daisy = Daisy(
+    os.getenv("SU_USERNAME"), # type: ignore
+    os.getenv("SU_PASSWORD"), # type: ignore
+    os.getenv("SECOND_USER_SEARCH_TERM"), # type: ignore
+    int(os.getenv("SECOND_USER_ID")), # type: ignore
+    staff = bool(int(os.getenv("SU_STAFF", "0"))), # type: ignore
+)
 
-rooms = parse_daisy_schedule(content)
+print(daisy._ensure_valid_staff_jsessionid())
 
-# print(rooms)
+print(daisy._is_staff_token_valid())
 
-# filter room["activities"] to only include rooms that begin with "G10"
-
-print(schedule({room: slots for room, slots in rooms.activities.items() if room.startswith("G10")}, RoomTime.ELEVEN, 4, shift=True))
-print(schedule({room: slots for room, slots in rooms.activities.items() if room.startswith("G10")}, RoomTime.TWENTY_TWO, 4, shift=True))
+print(daisy.get_schedule_for_category(datetime.date.today(), RoomCategory.SEMINAR_ROOMS))

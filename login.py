@@ -3,7 +3,17 @@ from bs4 import BeautifulSoup
 import dotenv, os
 
 
-def daisy_login(su_username: str, su_password: str) -> str:
+def daisy_login(su_username: str, su_password: str, staff: bool = False) -> str:
+    """
+    Signs in to Daisy via SU login flow and returns the JSESSIONID cookie value
+
+    Note: Using staff login without actually being staff may error and could be considered an IT policy violation of the Daisy system.
+
+    Args:
+        su_username: SU username
+        su_password: SU password
+        staff: Whether to sign in as staff. Defaults to False.
+    """
     # Start a session to keep cookies
     session = requests.Session()
 
@@ -35,7 +45,7 @@ def daisy_login(su_username: str, su_password: str) -> str:
 
     # 2. Navigate to the login URL which may be needed to retrieve further login form details
     login_response = session.get(
-        "https://daisy.dsv.su.se/Shibboleth.sso/Login?entityID=https://idp.it.su.se/idp/shibboleth&target=https://daisy.dsv.su.se/login_sso_student.jspa"
+        "https://daisy.dsv.su.se/Shibboleth.sso/Login?entityID=https://idp.it.su.se/idp/shibboleth&target=https://daisy.dsv.su.se/login_sso_student.jspa" if not staff else "https://daisy.dsv.su.se/Shibboleth.sso/Login?entityID=https://idp.it.su.se/idp/shibboleth&target=https://daisy.dsv.su.se/login_sso_employee.jspa"
     )
 
     # Parse the form action URL and other necessary parameters from the login page
@@ -83,6 +93,7 @@ def daisy_login(su_username: str, su_password: str) -> str:
 
 
 if __name__ == "__main__":
+    raise NotImplementedError("This script is not meant to be run directly.")
     dotenv.load_dotenv()
     su_username = os.getenv("SU_USERNAME", "")
     su_password = os.getenv("SU_PASSWORD", "")

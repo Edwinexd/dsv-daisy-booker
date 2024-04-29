@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from daisy import RoomTime
 from scheduler import Break
-from schemas import RoomRestriction
+from schemas import RoomCategory, RoomRestriction
 
 load_dotenv()
 
@@ -31,6 +31,7 @@ class RoomRequest:
     duration: int
     breaks: List[Break]
     room_restrictions: List[RoomRestriction]
+    room_category: RoomCategory
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> "RoomRequest":
@@ -41,6 +42,7 @@ class RoomRequest:
             duration=data["duration"],
             breaks=[Break(start_time=RoomTime(b["from_time"]), duration=b["duration"]) for b in data.get("breaks", [])],
             room_restrictions=[RoomRestriction(r) for r in data.get("room_filters", [])],
+            room_category=RoomCategory(data.get("room_category", RoomCategory.BOOKABLE_GROUP_ROOMS) if data.get("room_category") != 0 else RoomCategory.BOOKABLE_GROUP_ROOMS),
         )
 
 def generate_multi_week_calendar():
@@ -91,12 +93,12 @@ def chat_completion(model: str, messages: List[Dict[str, str]]) -> Dict[str, str
     return response.json()
 
 
-def handle_message(history: List[Dict[str, str]], message: str):
+def handle_message(history: List[Dict[str, str]], message: str, staff: bool = False):
     system_message: Dict[str, str] = {
         "role": "system",
         "content": f'''You assist with conversations and room scheduling
 
-        Respond with JSON: {{"conversations_response": str, "requests": List[{{"date": "YYYY-MM-DD", "from_time": int 4 to 23 (hours), "duration": 1 to 4 (hours), breaks?: [{{"from_time": int 4 to 23 (hours), "duration": 1 to 4 (hours)}}], title?: str, room_filters?: List[int]}}]}} 
+        Respond with JSON: {{"conversations_response": str, "requests": List[{{"date": "YYYY-MM-DD", "from_time": int 4 to 23 (hours), "duration": 1 to 4 (hours), breaks?: [{{"from_time": int 4 to 23 (hours), "duration": 1 to 4 (hours)}}], title?: str, {'room_category?: int, ' if staff else ''}room_filters?: List[int]}}]}} 
 
         Bookable dates/calender:
         {generate_week_calendar()}
@@ -113,6 +115,8 @@ def handle_message(history: List[Dict[str, str]], message: str):
         * Users may specify breaks
         * Users may specify room_filters, one int per filter, combine by specifying multiple ints e.x. [1,2].
         Available room_filters: 0=G10_ROOM, 1=G5_ROOM, 2=GREEN_AREA, 3=RED_AREA. 0,1 and 2,3 are mutually exclusive.
+        {"* The user is staff, they may specify a room_category." if staff else ""}
+        {f"Available room_categories: {', '.join([f'{c.name}={c.value}' for c in RoomCategory])}, Note: NON_BOOKABLE_GROUP_ROOMS are bookable by staff." if staff else ""}
         '''.replace("    ", "")
     }
     context = [system_message] + history + [{"role": "user", "content": message}]# + [{"role": "assistant", "content": "<invalid json>"}] + [{"role": "assistant", "content": "please provide valid json"}]
@@ -124,6 +128,7 @@ def handle_message(history: List[Dict[str, str]], message: str):
         "@cf/meta/llama-3-8b-instruct", # generally good performance
         context,
     )
+    print(completion)
     out_message: str = completion["result"]["response"]  # type: ignore
     # Remove newlines/whitespace before and after json
     out_message = re.sub(r"^\s+", "", out_message)

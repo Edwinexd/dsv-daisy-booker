@@ -20,10 +20,11 @@ intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 
 daisy = Daisy(
-    os.getenv("SU_USERNAME"),
-    os.getenv("SU_PASSWORD"),
-    os.getenv("SECOND_USER_SEARCH_TERM"),
-    int(os.getenv("SECOND_USER_ID")),
+    os.getenv("SU_USERNAME"), # type: ignore
+    os.getenv("SU_PASSWORD"), # type: ignore
+    os.getenv("SECOND_USER_SEARCH_TERM"), # type: ignore
+    int(os.getenv("SECOND_USER_ID")), # type: ignore
+    staff = bool(int(os.getenv("SU_STAFF", "0"))), # type: ignore
 )
 
 # Discord UI element (YES/NO) with BookingSlot
@@ -48,7 +49,7 @@ class Confirm(discord.ui.View):
         request = self.requests[self.active]
         embed = discord.Embed(
             color=discord.Color.blurple(),
-            title=f"{request[0].title if request[0].title is not None else 'Meeting'} - {request[0].date}",
+            title=f"{request[0].room_category}: {request[0].title if request[0].title is not None else 'Meeting'} - {request[0].date}",
             description="\n".join([f"{slot.room.name}: {slot.from_time.to_string()}->{slot.to_time.to_string()}" for slot in request[1]])
         )
         embed.set_footer(text=f"Request: {self.active + 1}/{len(self.requests)}")
@@ -62,7 +63,7 @@ class Confirm(discord.ui.View):
         self.active += 1
         await self.generate_and_set_embed(interaction=interaction)
         request = self.requests[self.active-1]
-        await run_async(daisy.book_slots, request[1], request[0].date, request[0].title if request[0].title is not None else 'Meeting')
+        await run_async(daisy.book_slots, RoomCategory.BOOKABLE_GROUP_ROOMS, request[1], request[0].date, request[0].title if request[0].title is not None else 'Meeting')
         await interaction.followup.send("Slot(s) have been booked", ephemeral=True)
 
     @discord.ui.button(label="Skip", style=discord.ButtonStyle.red)
@@ -113,7 +114,7 @@ async def on_message(message: discord.Message):
             prompt = message.content
             try:
                 print(history)
-                response = await run_async(handle_message, history, prompt)
+                response = await run_async(handle_message, history, prompt, staff=daisy.staff)
                 break
             except json.decoder.JSONDecodeError:
                 history.append({"role": "user", "content": prompt})
@@ -124,7 +125,7 @@ async def on_message(message: discord.Message):
                 return
         requests = []
         for request in response[2]:
-            schedule = await run_async(daisy.get_schedule_for_category, request.date, RoomCategory.BOOKABLE_GROUP_ROOMS)
+            schedule = await run_async(daisy.get_schedule_for_category, request.date, request.room_category)
             requests.append((request, schedule_rooms(schedule, request.from_time, request.duration, request.breaks, request.room_restrictions)))
         view = None
         if requests:
