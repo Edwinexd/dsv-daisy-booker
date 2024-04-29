@@ -51,12 +51,23 @@ class RoomTime(Enum):
         return self.value >= other.value
 
 class RoomCategory(Enum):
+    VISITORS_MEETING_ROOMS = 81
+    COMPUTER_LABS = 66
+    DISTANCE_AND_RECORDING_STUDIOS = 95
     BOOKABLE_GROUP_ROOMS = 68
+    NON_BOOKABLE_GROUP_ROOMS = 77
+    MEDIA_PRODUCTION = 76
+    PROJECT_MEETING_ROOMS = 82
+    MEETING_ROOMS = 71
+    SEMINAR_ROOMS = 67
+    STUDENT_LAB = 65
+    TEACHING_ROOMS = 64
 
     def to_string(self):
         return str(self.value)
 
 class Room(Enum):
+    # Bookable group rooms
     G10_1 = 633
     G10_2 = 634
     G10_3 = 635
@@ -80,6 +91,63 @@ class Room(Enum):
     G5_7 = 801
     G5_8 = 802
     G5_9 = 803
+    # Visitors meeting rooms
+    F1 = 840
+    F2 = 839
+    F3 = 838
+    # Computer labs
+    D1 = 625
+    D2 = 626
+    D3 = 627
+    D4 = 628
+    # Distance and recording studios
+    IDEAL_STUDIO = 790
+    SMALL_STUDIO = 1275
+    # Unbookable group rooms
+    G10_8 = 640
+    G5_14 = 813
+    G5_18 = 809
+    G5_19 = 808
+    G5_20 = 807
+    G5_21 = 806
+    # Media production
+    P1 = 652
+    P2 = 653
+    P3 = 654
+    STUDENTLABB_MEDIA = 651
+    STUDIO = 655
+    # Project meeting rooms
+    PROJECT_ZONE_2 = 1257
+    PROJECT_ZONE_5 = 1258
+    # Meeting rooms
+    M10 = 817
+    M20 = 820
+    M6_1 = 823
+    M6_2 = 822
+    M6_3 = 821
+    M6_4 = 824
+    M6_5 = 825
+    M6_6 = 819
+    M8 = 818
+    # Seminar rooms
+    S1 = 629
+    S2 = 630
+    S3 = 631
+    # Student lab
+    STUDENTLABB_ID_RIGHT = 648
+    STUDENTLABB_ID_LEFT = 1378
+    STUDENTLABB_ID_FIX = 1382
+    STUDENTLABB_GAME = 1394
+    STUDENTLABB_GAME_2022 = 649
+    STUDENTLABB_GAME_EXTRA_2022 = 869
+    STUDENTLABB_SECURITY = 650
+    # Teaching rooms
+    AUDITORIUM_NOD = 620
+    DL_40 = 632
+    L30 = 622
+    L50 = 623
+    L70 = 624
+    SMALL_AUDITORIUM = 621
 
     @classmethod
     def from_name(cls, name: str):
@@ -106,7 +174,64 @@ class Room(Enum):
             "G5:6": cls.G5_6,
             "G5:7": cls.G5_7,
             "G5:8": cls.G5_8,
-            "G5:9": cls.G5_9
+            "G5:9": cls.G5_9,
+            # Foaje
+            "Foaje F1": cls.F1,
+            "Foaje F2": cls.F2,
+            "Foaje F3": cls.F3,
+            # Datorsalar
+            "D1": cls.D1,
+            "D2": cls.D2,
+            "D3": cls.D3,
+            "D4": cls.D4,
+            # Distans och inspelningsstudios
+            "IDEAL-studion": cls.IDEAL_STUDIO,
+            "Lilla studion": cls.SMALL_STUDIO,
+            # Unbookable group rooms
+            "G10:8": cls.G10_8,
+            "G5:14": cls.G5_14,
+            "G5:18": cls.G5_18,
+            "G5:19": cls.G5_19,
+            "G5:20": cls.G5_20,	
+            "G5:21": cls.G5_21,
+            # Mediaproduktion
+            "Produktion 1": cls.P1,
+            "Produktion 2": cls.P2,
+            "Produktion 3": cls.P3,
+            "Studentlabb Media": cls.STUDENTLABB_MEDIA,
+            "Studio": cls.STUDIO,
+            # Projektmötesrum
+            "Projektmöte Zon 2": cls.PROJECT_ZONE_2,
+            "Projektmöte Zon 5": cls.PROJECT_ZONE_5,
+            # Mötesrum
+            "M10": cls.M10,
+            "M20": cls.M20,
+            "M6:1": cls.M6_1,
+            "M6:2": cls.M6_2,
+            "M6:3": cls.M6_3,
+            "M6:4": cls.M6_4,
+            "M6:5": cls.M6_5,
+            "M6:6": cls.M6_6,
+            "M8": cls.M8,
+            # Seminarierum
+            "S1": cls.S1,
+            "S2": cls.S2,
+            "S3": cls.S3,
+            # Studentlabb
+            "Studentlabb ID Höger": cls.STUDENTLABB_ID_RIGHT,
+            "Studentlabb ID Vänster": cls.STUDENTLABB_ID_LEFT,
+            "Studentlabb ID:fix": cls.STUDENTLABB_ID_FIX,
+            "Studentlabb Spel": cls.STUDENTLABB_GAME,
+            "Studentlabb Spel (-2022)": cls.STUDENTLABB_GAME_2022,
+            "Studentlabb Spel extra (-2022)": cls.STUDENTLABB_GAME_EXTRA_2022,
+            "Studentlabb Säkerhet": cls.STUDENTLABB_SECURITY,
+            # Undervisningsrum
+            "Aula NOD": cls.AUDITORIUM_NOD,
+            "DL40": cls.DL_40,
+            "L30": cls.L30,
+            "L50": cls.L50,
+            "L70": cls.L70,
+            "Lilla Hörsalen": cls.SMALL_AUDITORIUM,
         }[name]
 
 class RoomRestriction(Enum):
