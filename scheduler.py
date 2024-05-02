@@ -27,6 +27,31 @@ ROOM_PREFERENCE_ORDER = [
     Room.G5_15,
     Room.G5_16,
     Room.G5_17,
+    # No preference for visitors meeting rooms
+    # No preference for computer labs
+    # No preference for distance and recording studios
+    # Unbookable group rooms:
+    Room.G10_8,
+    # ^ Rest of the rooms, no preference
+    # No preference for media production rooms
+    # Project meeting rooms
+    Room.PROJECT_ZONE_5,
+    Room.PROJECT_ZONE_2,
+    # (Staff) meeting rooms
+    Room.M6_5,
+    Room.M6_6,
+    # ^ Rest of the rooms, no preference
+    # Seminar rooms
+    Room.S2,
+    Room.S1,
+    Room.S3,
+    # No preference for student labs
+    # Teaching rooms
+    Room.AUDITORIUM_NOD,
+    Room.SMALL_AUDITORIUM,
+    Room.L70,
+    Room.L50,
+    Room.L30,
 ]
 
 def schedule(rooms: List[BookableRoom], start_time: RoomTime, hours: int, shift: bool = False) -> List[BookingSlot]:

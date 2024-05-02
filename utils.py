@@ -20,4 +20,3 @@ async def run_async(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     loop = asyncio.get_event_loop()
     partial_func = functools.partial(func, **kwargs)
     return await loop.run_in_executor(None, partial_func, *args)
-    # return await loop.run_in_executor(None, func, *args, **kwargs)

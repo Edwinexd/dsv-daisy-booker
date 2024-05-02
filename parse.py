@@ -1,6 +1,6 @@
 import datetime
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from bs4 import BeautifulSoup
 
@@ -92,8 +92,13 @@ def parse_daisy_schedule(html_content: str) -> Schedule:
         date
     )
 
-if __name__ == "__main__":
-    with open("Daisy » Schedule.html", "r", encoding="utf-8") as file:
-        content = file.read()
+def parse_booking_completion(html_content: str) -> Optional[str]:
+    soup = BeautifulSoup(html_content, "html.parser")
+    # <ul class="errorMessage">
+    # <li><span>Du måste ange en titel.</span></li>	</ul>
+    error_message = soup.find("ul", {"class": "errorMessage"})
+    if error_message:
+        return error_message.find("span").text # type: ignore
+    
+    return None
 
-    print(parse_daisy_schedule(content))

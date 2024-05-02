@@ -1,12 +1,11 @@
-import os
 import datetime
-from enum import Enum
 from typing import List, Optional
 
 import requests
 
+
 from login import daisy_login
-from parse import parse_daisy_schedule
+from parse import parse_booking_completion, parse_daisy_schedule
 from schemas import BookingSlot, Schedule, RoomCategory, Room, RoomTime
 
 STANDARD_HEADERS = {
@@ -29,6 +28,9 @@ STANDARD_HEADERS = {
     "sec-ch-ua-platform": '"Windows"',
     "X-Powered-By": "dsv-daisy-booker (https://github.com/Edwinexd/dsv-daisy-booker); Contact (edwin.sundberg@dsv.su.se)",
 }
+
+class BookingError(Exception):
+    pass
 
 class Daisy:
     def __init__(self, su_username: str, su_password: str, search_term: str, lagg_till_person_id: int, initial_jsessionid: Optional[str] = None, last_validated: Optional[datetime.datetime] = None, booking_user_added: bool = False, staff: bool = False, staff_jsessionid: Optional[str] = None, staff_last_validated: Optional[datetime.datetime] = None):
@@ -179,6 +181,9 @@ class Daisy:
         }
         
         response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
+        error = parse_booking_completion(response.text)
+        if error is not None:
+            raise BookingError(error)
         return response
 
     def book_slots(self, room_category: RoomCategory, times: List[BookingSlot], date: datetime.date, title: str):

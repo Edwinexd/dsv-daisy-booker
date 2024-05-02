@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import os
 import re
 from typing import Any, Dict, List, Optional
@@ -42,7 +43,7 @@ class RoomRequest:
             duration=data["duration"],
             breaks=[Break(start_time=RoomTime(b["from_time"]), duration=b["duration"]) for b in data.get("breaks", [])],
             room_restrictions=[RoomRestriction(r) for r in data.get("room_filters", [])],
-            room_category=RoomCategory(data.get("room_category", RoomCategory.BOOKABLE_GROUP_ROOMS) if data.get("room_category") != 0 else RoomCategory.BOOKABLE_GROUP_ROOMS),
+            room_category=RoomCategory(int(data.get("room_category", RoomCategory.BOOKABLE_GROUP_ROOMS.value)) if data.get("room_category") != 0 else RoomCategory.BOOKABLE_GROUP_ROOMS),
         )
 
 def generate_multi_week_calendar():
@@ -120,7 +121,7 @@ def handle_message(history: List[Dict[str, str]], message: str, staff: bool = Fa
         '''.replace("    ", "")
     }
     context = [system_message] + history + [{"role": "user", "content": message}]# + [{"role": "assistant", "content": "<invalid json>"}] + [{"role": "assistant", "content": "please provide valid json"}]
-    print(context)
+    logging.debug("Context: %s", context)
     completion = chat_completion(
         #"@cf/meta-llama/llama-2-7b-chat-hf-lora", # good but added restriction
         # "@cf/google/gemma-7b-it-lora", # didnt complete
@@ -128,7 +129,7 @@ def handle_message(history: List[Dict[str, str]], message: str, staff: bool = Fa
         "@cf/meta/llama-3-8b-instruct", # generally good performance
         context,
     )
-    print(completion)
+    logging.debug("Completion: %s", completion)
     out_message: str = completion["result"]["response"]  # type: ignore
     # Remove newlines/whitespace before and after json
     out_message = re.sub(r"^\s+", "", out_message)
@@ -141,5 +142,23 @@ def handle_message(history: List[Dict[str, str]], message: str, staff: bool = Fa
 
     return out_json.get("conversations_response", "<Empty response>"), out_json.get("requests", []), parsed_requests
 
-if __name__ == "__main__":
-    print(handle_message([], "I need a room for a meeting asap, 4 hours"))
+def handle_message_retries(history: List[Dict[str, str]], message: str, staff: bool = False, retries: int = 5):
+    prompt = message.strip()
+    for i in range(max(retries, 1)):
+        try:
+            return handle_message(history, prompt, staff)
+        except (json.JSONDecodeError, ValueError) as e:
+            if retries - 1 == i:
+                raise e
+            
+            # First retry nothing changes, due to to the randomness of LLM it could be result in the correct result on a later retry
+            logging.warning("LLM Encountered an error, %s: %s, retrying %s more times", type(e), e, retries - i - 1)
+            if i == 0:
+                continue
+
+            history += [{"role": "user", "content": prompt}]
+            history += [{"role": "assistant", "content": f"<invalid output, error: f{type(e)}: {e}>"}]
+            prompt = "<provide valid json without any other characters before or after it>"
+
+    # Would use Never type but not available in the python version I'm using 
+    raise RuntimeError("Impossible outcome")

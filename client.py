@@ -4,8 +4,8 @@ from typing import List, Optional, Tuple, Union
 import discord
 from dotenv import load_dotenv
 
-from agent import RoomRequest, handle_message
-from daisy import Daisy
+from agent import RoomRequest, handle_message_retries
+from daisy import BookingError, Daisy
 from scheduler import schedule_rooms
 from schemas import BookingSlot, RoomCategory
 from utils import run_async
@@ -63,8 +63,12 @@ class Confirm(discord.ui.View):
         self.active += 1
         await self.generate_and_set_embed(interaction=interaction)
         request = self.requests[self.active-1]
-        await run_async(daisy.book_slots, RoomCategory.BOOKABLE_GROUP_ROOMS, request[1], request[0].date, request[0].title if request[0].title is not None else 'Meeting')
-        await interaction.followup.send("Slot(s) have been booked", ephemeral=True)
+        try:
+            await run_async(daisy.book_slots, RoomCategory.BOOKABLE_GROUP_ROOMS, request[1], request[0].date, request[0].title if request[0].title is not None else 'Meeting')
+        except BookingError as e:
+            await interaction.followup.send(f"Failed to book slot(s): {e}", ephemeral=True)
+        else:
+            await interaction.followup.send("Slot(s) have been booked", ephemeral=True)
 
     @discord.ui.button(label="Skip", style=discord.ButtonStyle.red)
     async def no(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
@@ -72,7 +76,7 @@ class Confirm(discord.ui.View):
         await self.generate_and_set_embed(interaction=interaction)
 
 
-cache = {}
+cache = {} # Memory leaks but for the scope of the project, it's fine
 
 @client.event
 async def on_ready():
@@ -110,19 +114,11 @@ async def on_message(message: discord.Message):
                 history.append({"role": "user", "content": ref.content})
             prev_message = ref.reference
         history.reverse()
-        for i in range(3):
-            prompt = message.content
-            try:
-                print(history)
-                response = await run_async(handle_message, history, prompt, staff=daisy.staff)
-                break
-            except json.decoder.JSONDecodeError:
-                history.append({"role": "user", "content": prompt})
-                history.append({"role": "assistant", "content": "<invalid json>"})
-                prompt = "<invalid json was provided try again next round>"
-            if i == 2:
-                await message.reply("I'm sorry, I'm having trouble understanding you")
-                return
+        try:
+            response = await run_async(handle_message_retries, history, message.content, staff=daisy.staff)
+        except (json.decoder.JSONDecodeError, ValueError):
+            await message.reply("I'm sorry, I'm having trouble understanding you")
+            return
         requests = []
         for request in response[2]:
             schedule = await run_async(daisy.get_schedule_for_category, request.date, request.room_category)
@@ -130,7 +126,6 @@ async def on_message(message: discord.Message):
         view = None
         if requests:
             view = Confirm(message.author, requests)
-        print(response)
         sent = await message.reply(str(response[0]), view=view) # type: ignore
         if view is not None:
             await view.generate_and_set_embed(message=sent)
@@ -138,4 +133,5 @@ async def on_message(message: discord.Message):
         return
 
 
-client.run(TOKEN)
+if __name__ == "__main__":
+    client.run(TOKEN)
