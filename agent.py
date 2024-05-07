@@ -43,7 +43,7 @@ class RoomRequest:
             duration=data["duration"],
             breaks=[Break(start_time=RoomTime(b["from_time"]), duration=b["duration"]) for b in data.get("breaks", [])],
             room_restrictions=[RoomRestriction(r) for r in data.get("room_filters", [])],
-            room_category=RoomCategory(int(data.get("room_category", RoomCategory.BOOKABLE_GROUP_ROOMS.value)) if data.get("room_category") != 0 else RoomCategory.BOOKABLE_GROUP_ROOMS),
+            room_category=RoomCategory(int(data.get("room_category", RoomCategory.BOOKABLE_GROUP_ROOMS.value)) if data.get("room_category") != 0 and isinstance(data.get("room_category"), int) else RoomCategory.BOOKABLE_GROUP_ROOMS),
         )
 
 def generate_multi_week_calendar():

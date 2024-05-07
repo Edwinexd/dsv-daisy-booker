@@ -163,7 +163,7 @@ class Daisy:
         url = "https://daisy.dsv.su.se/common/schema/bokning.jspa"
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
-            "Cookie": f"JSESSIONID={self.jsessionid};"
+            "Cookie": f"JSESSIONID={self.jsessionid if room_category == RoomCategory.BOOKABLE_GROUP_ROOMS else self.staff_jsessionid};"
         }
         data = {
             "year": date.year,
@@ -179,7 +179,6 @@ class Daisy:
             "laggTillPersonID": "",
             "bokning": ""
         }
-        
         response = requests.post(url, headers=STANDARD_HEADERS | headers, data=data)
         error = parse_booking_completion(response.text)
         if error is not None:

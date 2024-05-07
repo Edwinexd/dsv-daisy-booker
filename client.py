@@ -64,7 +64,7 @@ class Confirm(discord.ui.View):
         await self.generate_and_set_embed(interaction=interaction)
         request = self.requests[self.active-1]
         try:
-            await run_async(daisy.book_slots, RoomCategory.BOOKABLE_GROUP_ROOMS, request[1], request[0].date, request[0].title if request[0].title is not None else 'Meeting')
+            await run_async(daisy.book_slots, request[0].room_category, request[1], request[0].date, request[0].title if request[0].title is not None else 'Meeting')
         except BookingError as e:
             await interaction.followup.send(f"Failed to book slot(s): {e}", ephemeral=True)
         else:
