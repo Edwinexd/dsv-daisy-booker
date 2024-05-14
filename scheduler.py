@@ -68,6 +68,8 @@ def schedule(rooms: List[BookableRoom], start_time: RoomTime, hours: int, shift:
         List[BookingSlot]: List of suggested bookings to cover the meeting
     """
 
+    start_hours = start_time.value
+
     room_max: Optional[BookableRoom] = None
     room_max_hours = -1
 
@@ -75,7 +77,6 @@ def schedule(rooms: List[BookableRoom], start_time: RoomTime, hours: int, shift:
         booked_slots = room.booked_slots
         booked_hours = 0
 
-        start_hours = start_time.value
         for i in range(start_hours, hours + start_hours):
             if i >= 23:
                 break
