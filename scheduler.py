@@ -27,7 +27,9 @@ ROOM_PREFERENCE_ORDER = [
     Room.G5_15,
     Room.G5_16,
     Room.G5_17,
-    # No preference for visitors meeting rooms
+    # Visitors meeting rooms
+    Room.F1,
+    Room.F3,
     # No preference for computer labs
     # No preference for distance and recording studios
     # Unbookable group rooms:
