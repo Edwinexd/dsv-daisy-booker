@@ -37,3 +37,6 @@ docker run --env-file .env dsv-daisy-booker
 This project is not affiliated with Stockholm University or Daisy in any way. It is a personal project and should be used responsibly. Provided as is, no guarantees are made about its functionality or security.
 
 If you are a representative of Stockholm University/DSV and need to get in touch, please contact me at [edwin.sundberg@dsv.su.se](mailto:edwin.sundberg@dsv.su.se).
+
+## License
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE.md) file for more information.
