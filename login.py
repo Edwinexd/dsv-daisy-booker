@@ -59,7 +59,6 @@ def daisy_login(su_username: str, su_password: str, staff: bool = False) -> str:
 
     # 1. Get the initial session cookie by visiting the main page
     session.get("https://daisy.dsv.su.se/index.jspa")
-
     # 2. Navigate to the login URL which may be needed to retrieve further login form details
     login_response = session.get(
         "https://daisy.dsv.su.se/Shibboleth.sso/Login?entityID=https://idp.it.su.se/idp/shibboleth&target=https://daisy.dsv.su.se/login_sso_student.jspa"
@@ -67,19 +66,37 @@ def daisy_login(su_username: str, su_password: str, staff: bool = False) -> str:
         else "https://daisy.dsv.su.se/Shibboleth.sso/Login?entityID=https://idp.it.su.se/idp/shibboleth&target=https://daisy.dsv.su.se/login_sso_employee.jspa"
     )
 
-    # Parse the form action URL and other necessary parameters from the login page
+    # find form
     soup = BeautifulSoup(login_response.text, "html.parser")
+    form = soup.find("form")
+    action_url = form["action"]
+
+    # Extract hidden input fields
+    form_data = {
+        tag["name"]: tag["value"]
+        for tag in form.find_all("input")
+        if tag.get("name") and tag.get("value")
+    }
+
+    # add eventId proceed as it doesn't have a value and won't be found by the previous for
+    form_data.update(
+        {
+            "_eventId_proceed": "",
+        }
+    )
+
+    # Submit the midstep form manually (this mimics JavaScript auto-submit)
+    intermediate_response = session.post(
+        "https://idp.it.su.se" + action_url, data=form_data
+    )
+
+    soup = BeautifulSoup(intermediate_response.text, "html.parser")
+
     # This depends heavily on the actual form structure and might need to be adjusted
     form = soup.find("form")
-
     form_data = {
-        tag.get("name"): tag.get("value", "")
-        for tag in form.find_all("input")
-        if tag.get(
-            "name"
-        )  # This ensures we don't process inputs without a name
-    }
-    # type: ignore
+        tag["name"]: tag.get("value", "") for tag in form.find_all("input")
+    }  # type: ignore
 
     # Add username and password to the form data
     form_data.update(
@@ -90,16 +107,13 @@ def daisy_login(su_username: str, su_password: str, staff: bool = False) -> str:
         }
     )
 
-    # Only pop if it exists
-    form_data.pop("_eventId_authn/SPNEGO", None)
+    form_data.pop("_eventId_authn/SPNEGO")
 
     # 3. Submit the login form
-    action_url = (
-        login_response.url.split(";")[0]
-        + "?"
-        + login_response.url.split(";")[1].split("?")[1]
+    action_url = form["action"]
+    post_response = session.post(
+        "https://idp.it.su.se" + action_url, data=form_data
     )
-    post_response = session.post(action_url, data=form_data)
 
     assert post_response.ok
 
@@ -107,7 +121,6 @@ def daisy_login(su_username: str, su_password: str, staff: bool = False) -> str:
     soup = BeautifulSoup(post_response.text, "html.parser")
 
     form = soup.find("form")
-
     # (form data is placed in hidden input fields)
     form_data = {
         tag.get("name"): tag.get("value")
@@ -117,10 +130,6 @@ def daisy_login(su_username: str, su_password: str, staff: bool = False) -> str:
 
     # Submit the form
     action_url = form["action"]  # type: ignore
-
-    # non relative URL
-    action_url = "https://idp.it.su.se" + action_url
-
     post_response = session.post(
         action_url,
         data=form_data,
