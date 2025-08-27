@@ -52,7 +52,7 @@ def daisy_login(su_username: str, su_password: str, staff: bool = False) -> str:
         "sec-ch-ua": '"Microsoft Edge";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Windows"',
-        "X-Powered-By": "dsv-daisy-booker (https://github.com/Edwinexd/dsv-daisy-booker); Contact (edwin.sundberg@dsv.su.se)",
+        "X-Powered-By": "dsv-daisy-booker (https://github.com/Edwinexd/dsv-daisy-booker)",
     }
     for key, value in headers.items():
         session.headers[key] = value
